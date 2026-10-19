@@ -1,0 +1,5 @@
+# Allowlist: only the tool is tracked, so docs generated in this folder never land in the public repo.
+/*
+!/.gitignore
+!/new_doc.py
+!/test_new_doc.py
