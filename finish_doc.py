@@ -5,11 +5,14 @@ Checks:
   - leftover template text (lorem ipsum, "Your Name", empty #answer[] boxes, ...)
   - bibliography entries you never cite
   - Typst errors and warnings (missing fonts, broken references, ...)
+  - spelling (aspell), in the doc's language; #es[...]-style passages are checked in their own language.
+    Words to accept (names, jargon): one per line in dictionary.txt next to main.typ.
 Then writes <folder>/<folder-name>.pdf. Exits with status 1 if anything needs fixing.
 
 Usage: finishdoc [path]   (path = doc folder or .typ file; default: current folder)
 """
 import argparse
+import html
 import re
 import subprocess
 import sys
@@ -20,10 +23,57 @@ PLACEHOLDERS = [
     r"Course name", r"#answer\[\s*\]", r'"\w+" text here', r"A footnote\.", r"#footnote\[Source\.\]",
 ]
 
+MAX_SPELLING = 30
+
+
+def aspell(lang, text):
+    r = subprocess.run(["aspell", "list", f"--lang={lang}", "--encoding=utf-8"], input=text, capture_output=True, text=True)
+    if r.returncode:
+        raise RuntimeError(r.stderr.strip())
+    return r.stdout.split()
+
+
+def spelling(src, text):
+    """Misspelled words as 'file:line: spelling (lang): word' issues."""
+    # HTML export gives the rendered text without Typst code; drop bibliography and code.
+    out = subprocess.run(["typst", "compile", "--features", "html", "--format", "html", str(src), "-"],
+                         capture_output=True, text=True, cwd=src.parent).stdout
+    lang = m.group(1) if (m := re.search(r'#set text\([^)]*lang: "([\w-]+)"', text)) else "en"  # Typst's default
+    out = re.sub(r'<section role="doc-bibliography".*?</section>|<(pre|code)\b.*?</\1>', " ", out, flags=re.S)
+    words = aspell(lang, html.unescape(re.sub(r"<[^>]+>", " ", out)))
+
+    # HTML export loses text(lang: ...), so re-check passages in other languages from the source.
+    helpers = dict(re.findall(r'#let ([\w-]+)\(body\) = text\(lang: "([\w-]+)"', text))
+    passages = [(helpers[h], seg) for h, seg in re.findall(r"#([\w-]+)\[([^\]]*)\]", text) if h in helpers]
+    passages += re.findall(r'#text\(lang: "([\w-]+)"\)\[([^\]]*)\]', text)
+    lang_of = {}  # misspelled word -> language of the passage it's in
+    for plang, seg in passages:
+        wrong = aspell(plang, seg)
+        lang_of.update(dict.fromkeys(wrong, plang))
+        fine = set(re.findall(r"\w+", seg)) - set(wrong)
+        words = [w for w in words if w not in fine]
+
+    dic = src.with_name("dictionary.txt")
+    accepted = {w.strip().lower() for w in dic.read_text().splitlines()} if dic.exists() else set()
+    lines = text.splitlines()
+    issues = []
+    for w in dict.fromkeys(words):  # unique, in reading order
+        if w.lower() in accepted:
+            continue
+        n = next((i for i, l in enumerate(lines, 1) if re.search(rf"\b{re.escape(w)}\b", l)), None)
+        if n is None:  # generated text (lorem, Typst labels): nothing to fix in the source
+            continue
+        count = words.count(w)
+        issues.append(f"{src.name}:{n}: spelling ({lang_of.get(w, lang)}): {w}" + (f" (×{count})" if count > 1 else ""))
+    if len(issues) > MAX_SPELLING:
+        issues = issues[:MAX_SPELLING] + [f"... and {len(issues) - MAX_SPELLING} more misspelled words"]
+    return issues
+
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("path", nargs="?", default=".", help="doc folder or .typ file (default: current folder)")
+    ap.add_argument("--no-spell", action="store_true", help="skip the spellcheck")
     ap.add_argument("--pdfa", action="store_true", help="produce PDF/A-2b (archival; often required for submissions)")
     args = ap.parse_args()
 
@@ -59,6 +109,14 @@ def main():
     except FileNotFoundError:
         sys.exit("Typst not installed: run ./install.sh in doc-builder")
     issues += [l for l in r.stderr.splitlines() if ": error:" in l or ": warning:" in l]
+
+    if not args.no_spell and r.returncode == 0:
+        try:
+            issues += spelling(src, text)
+        except FileNotFoundError:
+            print("⚠ aspell not installed, spellcheck skipped (brew install aspell)")
+        except RuntimeError as e:
+            print(f"⚠ spellcheck skipped: {e}")
 
     for issue in issues:
         print("✗", issue)

@@ -1,4 +1,5 @@
 """Generates every preset (all defaults, plus one with extras), compiles it, and checks finishdoc. Run: python3 test_new_doc.py"""
+import re
 import subprocess
 import sys
 import tempfile
@@ -37,4 +38,11 @@ with tempfile.TemporaryDirectory() as tmp:
     (clean / "main.typ").write_text(f"= Intro\nReal text.\n{bib}\n")
     f = subprocess.run([sys.executable, FINISH, clean, "--pdfa"], capture_output=True, text=True)
     assert f.returncode == 1 and "never cited: k84" in f.stdout, f.stdout + f.stderr
+
+    # Spellcheck: English typo flagged, Spanish passage checked in Spanish, dictionary.txt words accepted.
+    (clean / "main.typ").write_text('#let es(body) = text(lang: "es", body)\nI recieve mail from Fonsworth. #es[Hola amigo] #es[grasias]\n')
+    (clean / "dictionary.txt").write_text("Fonsworth\n")
+    f = subprocess.run([sys.executable, FINISH, clean], capture_output=True, text=True)
+    flagged = re.findall(r"spelling \((\w+)\): (\w+)", f.stdout)
+    assert f.returncode == 1 and flagged == [("en", "recieve"), ("es", "grasias")], f.stdout + f.stderr
     print("ok finishdoc")

@@ -11,7 +11,7 @@ cd doc-builder
 ```
 
 The install script:
-- installs Typst with Homebrew if it's missing;
+- installs Typst and aspell (the spellchecker) with Homebrew if they're missing;
 - links the `newdoc` and `finishdoc` commands into `~/.local/bin`;
 - adds that folder to your PATH if it isn't there already.
 
@@ -45,7 +45,10 @@ finishdoc essay-1 --pdfa   # PDF/A-2b, the archival format many submissions requ
 It checks for:
 - leftover template text (lorem ipsum, "Your Name", "Untitled", empty `#answer[]` boxes, ...);
 - bibliography entries you never cite;
-- Typst errors and warnings (missing fonts, broken `@references`, missing images).
+- Typst errors and warnings (missing fonts, broken `@references`, missing images);
+- spelling, in the document's language. Passages wrapped in a language helper such as `#es[...]` are checked in that language. Bibliography entries and code are skipped.
+
+To accept names and jargon, list them one per line in `dictionary.txt` next to `main.typ`. Use `--no-spell` to skip the spellcheck.
 
 Then it writes `essay-1/essay-1.pdf`. If anything needs fixing, it lists each problem with its line number and exits with status 1. Lines starting with `//` are skipped, so a comment never counts as leftover text.
 

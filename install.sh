@@ -15,6 +15,14 @@ if ! command -v typst >/dev/null; then
   fi
 fi
 
+if ! command -v aspell >/dev/null; then
+  if command -v brew >/dev/null; then
+    brew install aspell  # spellcheck for finishdoc; includes dictionaries for most languages
+  else
+    echo "warning: aspell not found; finishdoc will skip the spellcheck. Install it: http://aspell.net/"
+  fi
+fi
+
 chmod +x "$DIR/new_doc.py" "$DIR/finish_doc.py"
 mkdir -p "$BIN"
 ln -sf "$DIR/new_doc.py" "$BIN/newdoc"
