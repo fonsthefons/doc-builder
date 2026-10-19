@@ -3,3 +3,5 @@
 !/.gitignore
 !/new_doc.py
 !/test_new_doc.py
+!/README.md
+!/install.sh
