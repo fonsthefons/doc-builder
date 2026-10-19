@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Installs Typst (if missing) and the `newdoc` command. Safe to re-run.
+# Installs Typst (if missing) and the `newdoc` and `finishdoc` commands. Safe to re-run.
 set -euo pipefail
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -15,9 +15,10 @@ if ! command -v typst >/dev/null; then
   fi
 fi
 
-chmod +x "$DIR/new_doc.py"
+chmod +x "$DIR/new_doc.py" "$DIR/finish_doc.py"
 mkdir -p "$BIN"
 ln -sf "$DIR/new_doc.py" "$BIN/newdoc"
+ln -sf "$DIR/finish_doc.py" "$BIN/finishdoc"
 
 case ":$PATH:" in
   *":$BIN:"*) ;;
@@ -29,4 +30,4 @@ case ":$PATH:" in
     ;;
 esac
 
-echo "Installed. Run: newdoc   (or: newdoc --help)"
+echo "Installed. Run: newdoc  /  finishdoc   (add --help for details)"

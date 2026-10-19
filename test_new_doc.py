@@ -1,4 +1,4 @@
-"""Generates every preset (all defaults, plus one with extras) and compiles it with Typst. Run: python3 test_new_doc.py"""
+"""Generates every preset (all defaults, plus one with extras), compiles it, and checks finishdoc. Run: python3 test_new_doc.py"""
 import subprocess
 import sys
 import tempfile
@@ -7,6 +7,7 @@ from pathlib import Path
 import new_doc
 
 SCRIPT = Path(__file__).with_name("new_doc.py")
+FINISH = Path(__file__).with_name("finish_doc.py")
 # Answers are fed in prompt order; blank lines accept defaults and EOF accepts all the rest.
 CASES = {p: f"{p}\n" for p in new_doc.PRESETS}
 CASES["report-extras"] = 'report\nMy "Quoted" Report\nSub\nAna, Bo\n\n\nen\nes,or\n' + "\n" * 20 + "y\ny\ny\nieee\n{logo}\nboth\n"
@@ -22,4 +23,18 @@ with tempfile.TemporaryDirectory() as tmp:
         typ = next(cwd.glob("*/main.typ"))
         c = subprocess.run(["typst", "compile", typ], capture_output=True, text=True)
         assert c.returncode == 0, f"{name}: typst failed\n{c.stderr}\n--- {typ}\n{typ.read_text()}"
+        f = subprocess.run([sys.executable, FINISH, typ.parent], capture_output=True, text=True)
+        assert f.returncode == 1 and "leftover template text" in f.stdout, f"{name}: finishdoc missed placeholders\n{f.stdout}"
         print("ok", name)
+
+    # finishdoc on a finished doc: passes, then fails once a source goes uncited.
+    clean = Path(tmp, "clean")
+    clean.mkdir()
+    bib = '#bibliography(bytes(```bib\n@book{k84,\n  author = {Knuth},\n  title = {T},\n  year = {1984},\n}\n```.text))'
+    (clean / "main.typ").write_text(f"= Intro\nReal text, see @k84.\n{bib}\n")
+    f = subprocess.run([sys.executable, FINISH, clean], capture_output=True, text=True)
+    assert f.returncode == 0 and (clean / "clean.pdf").exists(), f.stdout + f.stderr
+    (clean / "main.typ").write_text(f"= Intro\nReal text.\n{bib}\n")
+    f = subprocess.run([sys.executable, FINISH, clean, "--pdfa"], capture_output=True, text=True)
+    assert f.returncode == 1 and "never cited: k84" in f.stdout, f.stdout + f.stderr
+    print("ok finishdoc")

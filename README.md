@@ -12,7 +12,7 @@ cd doc-builder
 
 The install script:
 - installs Typst with Homebrew if it's missing;
-- links the `newdoc` command into `~/.local/bin`;
+- links the `newdoc` and `finishdoc` commands into `~/.local/bin`;
 - adds that folder to your PATH if it isn't there already.
 
 It only needs `python3`. The script uses the standard library alone, so there are no packages to install.
@@ -34,6 +34,20 @@ typst watch essay-1/main.typ        # rebuilds main.pdf on every save
 ```
 
 In Cursor or VS Code, the **Tinymist Typst** extension gives you a live preview and autocompletion.
+
+## Finishing a document
+
+```sh
+finishdoc essay-1          # or run `finishdoc` inside the doc folder
+finishdoc essay-1 --pdfa   # PDF/A-2b, the archival format many submissions require
+```
+
+It checks for:
+- leftover template text (lorem ipsum, "Your Name", "Untitled", empty `#answer[]` boxes, ...);
+- bibliography entries you never cite;
+- Typst errors and warnings (missing fonts, broken `@references`, missing images).
+
+Then it writes `essay-1/essay-1.pdf`. If anything needs fixing, it lists each problem with its line number and exits with status 1. Lines starting with `//` are skipped, so a comment never counts as leftover text.
 
 ## Document types
 
@@ -63,7 +77,7 @@ To use a bibliography exported from Zotero instead, put `refs.bib` next to `main
 ## Development
 
 ```sh
-python3 test_new_doc.py   # generates and compiles every document type
+python3 test_new_doc.py   # generates and compiles every document type, and tests finishdoc
 ```
 
 The repo uses an allowlist `.gitignore`. Only the tool's files are tracked, so documents you create inside this folder are never committed. When you add a file to the tool, add a matching `!/filename` line to `.gitignore`.
