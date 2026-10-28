@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Interactive Typst template generator: asks questions, then writes <folder>/main.typ in the current directory.
 
-Press Enter to accept the [default] shown for each question.
+Press Enter to accept the [default] shown for each question. The first question is the kind: document or presentation.
 
 Document types (each sets its own defaults):
   article   title block, abstract, numbered headings, footnotes, bibliography
@@ -11,10 +11,19 @@ Document types (each sets its own defaults):
   homework  course + due date, #question[...] / #answer[...] helpers, "1 / N" page numbers
   summary   key points, numbered sections, compact
 
+Presentation themes (16:9 or 4:3 slides; title slide, outline, slide numbers, references slide):
+  clean     white, one accent color, thin line under each slide title
+  academic  serif font, colored title band behind each slide title
+  minimal   large text, lots of white space, no decoration
+  dark      dark background, light text, for darkened lecture halls
+  bold      title and section slides in full accent color, plain content slides
+
 In the generated main.typ:
   @key            cite a source (add BibTeX entries in the References block at the bottom)
   #footnote[...]  footnote
   #es[...]        passage in another language (one helper per extra language you list)
+  = Title         (presentations) starts a new slide
+  #section[...]   (presentations) section divider slide, listed on the outline slide
 
 Preview: typst watch <folder>/main.typ   (or the Tinymist Typst extension in Cursor)
 Test the script: python3 test_new_doc.py
@@ -33,6 +42,21 @@ PRESETS = {
     "notes":    dict(numbering="",    title_page=False, toc=False, bib=False, margin=1.5, size=10, columns=2, page_fmt="1",     justify=False),
     "homework": dict(numbering="",    title_page=False, toc=False, bib=False, margin=2,   size=11, columns=1, page_fmt="1 / N", justify=False),
     "summary":  dict(numbering="1.",  title_page=False, toc=False, bib=False, margin=2,   size=10, columns=1, page_fmt="1",     justify=False),
+}
+SANS = ["Helvetica Neue", "Inter", "Arial", "Liberation Sans", "DejaVu Sans"]
+# Slide themes. heading: Typst code drawing a slide title from `body`; filled: title/section slides in full accent color;
+# weight: font weight of slide, section and title-slide titles.
+THEMES = {
+    "clean":    dict(fonts=SANS, size=20, accent="#1f4e79", bg="#ffffff", fg="#222222", filled=False, weight="bold",
+                     heading='block(width: 100%, inset: (bottom: 0.3em), stroke: (bottom: 1.5pt + accent), below: 0.9em, text(1.4em, fill: accent, body))'),
+    "academic": dict(fonts=["Libertinus Serif"], size=21, accent="#7a1f2b", bg="#ffffff", fg="#222222", filled=False, weight="bold",
+                     heading='block(width: 100%, fill: accent, outset: (x: margin-x, top: margin-top), inset: (top: 0.2em, bottom: 0.45em), below: 1em, text(1.4em, fill: white, body))'),
+    "minimal":  dict(fonts=["Avenir Next", *SANS], size=22, accent="#333333", bg="#ffffff", fg="#333333", filled=False, weight="regular",
+                     heading='block(below: 1.2em, text(1.6em, fill: accent, body))'),
+    "dark":     dict(fonts=SANS, size=20, accent="#8ab4f8", bg="#1e1f26", fg="#e8e8e8", filled=False, weight="bold",
+                     heading='block(inset: (left: 0.6em), stroke: (left: 4pt + accent), below: 0.9em, text(1.4em, body))'),
+    "bold":     dict(fonts=SANS, size=20, accent="#d1495b", bg="#ffffff", fg="#222222", filled=True, weight="bold",
+                     heading='block(below: 0.9em, text(1.5em, fill: accent, body))'),
 }
 BIB_STYLES = ["apa", "ieee", "mla", "chicago-author-date", "chicago-notes", "harvard-cite-them-right", "vancouver"]
 TYPST_KEYWORDS = {"as", "or", "in", "if", "and", "not", "let", "set", "for", "none", "auto", "show"}
@@ -76,20 +100,97 @@ def section(name):
     print(f"\n── {name} ──")
 
 
-def check_font(font):
+def typst_fonts():
     try:
-        fonts = subprocess.run(["typst", "fonts"], capture_output=True, text=True).stdout.lower().splitlines()
+        return set(subprocess.run(["typst", "fonts"], capture_output=True, text=True).stdout.lower().splitlines())
     except FileNotFoundError:
-        return
-    if font.lower() not in fonts:
+        return None
+
+
+def check_font(font):
+    fonts = typst_fonts()
+    if fonts is not None and font.lower() not in fonts:
         print(f"  warning: '{font}' not found by Typst (see `typst fonts`). Typst will fall back to its default.")
 
 
+def first_font(candidates):  # first one installed, so the default never triggers a missing-font warning
+    fonts = typst_fonts() or set()
+    return next((f for f in candidates if f.lower() in fonts), candidates[0])
+
+
+def folder_for(title):
+    return re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-") or "doc"
+
+
+def ask_languages(c):
+    section("Language")
+    c["lang"] = ask("Main language code (en, es, fr, de, ...)", "en")
+    c["langs"] = [l.strip() for l in ask("Other languages used inside the doc, comma-separated (empty = none)").split(",") if l.strip()]
+    bad = [l for l in [c["lang"], *c["langs"]] if not re.fullmatch(r"[a-z]{2,3}", l)]
+    if bad:
+        raise SystemExit(f"Invalid language code(s): {bad}. Use ISO codes like en, es, pt.")
+
+
+def ask_accent(c, default):
+    c["accent"] = ask("Accent color for headings/links (hex like #1f4e79, empty = black)", default)
+    if c["accent"] and not re.fullmatch(r"#?[0-9a-fA-F]{6}", c["accent"]):
+        raise SystemExit("Accent color must be a 6-digit hex like #1f4e79.")
+
+
+def ask_logo(c, places, default):
+    c["logo"] = ""
+    while logo := ask("Logo image path (empty = none)"):
+        if Path(logo).expanduser().is_file():
+            c["logo"] = str(Path(logo).expanduser())
+            c["logo_pos"] = choose("Logo on", places, default)
+            break
+        print("  file not found")
+
+
 def collect():
+    section("Kind")
+    if choose("Kind", ["document", "presentation"], "document") == "presentation":
+        return collect_presentation()
+    return collect_document()
+
+
+def collect_presentation():
+    section("Presentation")
+    theme = choose("Theme", list(THEMES), "clean")
+    t = THEMES[theme]
+    c = dict(kind="presentation", theme=theme)
+    c["title"] = ask("Title", "Untitled")
+    c["subtitle"] = ask("Subtitle (empty = none)")
+    c["authors"] = [a.strip() for a in ask("Author(s), comma-separated", "Your Name").split(",") if a.strip()]
+    c["institution"] = ask("Institution or course (empty = none)")
+    c["date"] = ask("Date of the talk (empty = none)", datetime.date.today().strftime("%d %B %Y"))
+    c["folder"] = ask("Folder name", folder_for(c["title"]))
+
+    ask_languages(c)
+
+    section("Slides")
+    c["aspect"] = choose("Aspect ratio", ["16-9", "4-3"], "16-9")
+    c["font"] = ask("Font", first_font(t["fonts"]))
+    check_font(c["font"])
+    c["size"] = number("Font size (pt)", t["size"])
+    ask_accent(c, t["accent"])
+
+    section("Extras")
+    c["title_slide"] = yes("Title slide", True)
+    c["outline"] = yes("Outline slide", True)
+    c["slide_numbers"] = yes("Slide numbers", True)
+    c["footer_text"] = ask("Footer text (empty = none)", " · ".join(x for x in [", ".join(c["authors"]), c["institution"]] if x))
+    c["bib"] = yes("References slide", True)
+    c["bib_style"] = choose("Citation style", BIB_STYLES, "apa") if c["bib"] else ""
+    ask_logo(c, ["title", "all"], "title")
+    return c
+
+
+def collect_document():
     section("Document")
     preset = choose("Type", list(PRESETS), "article")
     p = PRESETS[preset]
-    c = dict(preset=preset)
+    c = dict(kind="document", preset=preset)
     c["title"] = ask("Title", "Untitled")
     c["subtitle"] = ask("Subtitle (empty = none)") if preset != "letter" else ""
     c["authors"] = [a.strip() for a in ask("Author(s), comma-separated", "Your Name").split(",") if a.strip()]
@@ -97,14 +198,9 @@ def collect():
     if preset == "homework":
         c["course"] = ask("Course", "Course name")
         c["due"] = ask("Due date (empty = none)")
-    c["folder"] = ask("Folder name", re.sub(r"[^a-z0-9]+", "-", c["title"].lower()).strip("-") or "doc")
+    c["folder"] = ask("Folder name", folder_for(c["title"]))
 
-    section("Language")
-    c["lang"] = ask("Main language code (en, es, fr, de, ...)", "en")
-    c["langs"] = [l.strip() for l in ask("Other languages used inside the doc, comma-separated (empty = none)").split(",") if l.strip()]
-    bad = [l for l in [c["lang"], *c["langs"]] if not re.fullmatch(r"[a-z]{2,3}", l)]
-    if bad:
-        raise SystemExit(f"Invalid language code(s): {bad}. Use ISO codes like en, es, pt.")
+    ask_languages(c)
 
     section("Page")
     c["paper"] = ask("Paper (a4, us-letter, a5, ...)", "a4")
@@ -121,9 +217,7 @@ def collect():
     c["justify"] = yes("Justify paragraphs", p["justify"])
     c["indent"] = number("First-line paragraph indent (em, 0 = none)", 0)
     c["numbering"] = ask("Heading numbering (1.1 / I.1 / a) / 1. / empty = none)", p["numbering"])
-    c["accent"] = ask("Accent color for headings/links (hex like #1f4e79, empty = black)", "#1f4e79")
-    if c["accent"] and not re.fullmatch(r"#?[0-9a-fA-F]{6}", c["accent"]):
-        raise SystemExit("Accent color must be a 6-digit hex like #1f4e79.")
+    ask_accent(c, "#1f4e79")
 
     section("Header / footer")
     dh = c["title"] if preset in ("report", "notes", "summary") else c.get("course", "")
@@ -140,17 +234,182 @@ def collect():
     c["abstract"] = yes("Abstract", True) if preset == "article" else False
     c["bib"] = yes("Bibliography", p["bib"])
     c["bib_style"] = choose("Citation style", BIB_STYLES, "apa") if c["bib"] else ""
-    c["logo"] = ""
-    while logo := ask("Logo image path (empty = none)"):
-        if Path(logo).expanduser().is_file():
-            c["logo"] = str(Path(logo).expanduser())
-            c["logo_pos"] = choose("Logo in", ["header", "title", "both"], "title")
-            break
-        print("  file not found")
+    ask_logo(c, ["header", "title", "both"], "title")
     return c
 
 
+def lang_helpers(langs):
+    if not langs:
+        return []
+    out = ["\n// ===== Other languages: wrap passages so hyphenation and quotes follow that language ====="]
+    for l in langs:
+        out.append(f'#let {helper(l)}(body) = text(lang: "{l}", body)')
+    return out
+
+
+def helper(lang):
+    return "lang-" + lang if lang in TYPST_KEYWORDS else lang
+
+
+def bibliography(style, title=""):
+    return f"""
+// ===== References =====
+// Add BibTeX entries inside the block below as you write; cite them in the text with @key.
+// (Prefer a separate file, e.g. a Zotero export? Use: #bibliography("refs.bib", {title}style: "{style}"))
+#bibliography({title}style: "{style}", bytes(```bib
+@book{{knuth1984,
+  author    = {{Donald E. Knuth}},
+  title     = {{The TeXbook}},
+  publisher = {{Addison-Wesley}},
+  year      = {{1984}},
+}}
+```.text))"""
+
+
 def build(c):
+    return build_presentation(c) if c["kind"] == "presentation" else build_document(c)
+
+
+def build_presentation(c):
+    t = THEMES[c["theme"]]
+    logo = "logo" + Path(c["logo"]).suffix if c["logo"] else ""
+    accent = f'rgb("#{c["accent"].lstrip("#")}")' if c["accent"] else "black"
+    on_fill = "white" if t["filled"] else "fg"
+    number = 'counter(page).display("1 / 1", both: true)' if c["slide_numbers"] else "none"
+    out = [f"""// {c['title']} — created {datetime.date.today()} with new_doc.py (presentation, theme: {c['theme']})
+// Live preview in Cursor: install the "Tinymist Typst" extension, or run `typst watch main.typ`.
+// Each `= Heading` starts a new slide; #section[...] adds a divider slide.
+
+// ===== Metadata =====
+#let title = {s(c['title'])}
+#let subtitle = {s(c['subtitle'])}
+#let authors = ({''.join(s(a) + ', ' for a in c['authors'])})
+#let institution = {s(c['institution'])}
+#let date = {s(c['date'])}
+#let footer-text = {s(c['footer_text'])}
+#set document(title: title, author: authors)
+
+// ===== Theme: {c['theme']} =====
+#let accent = {accent}
+#let fg = rgb("{t['fg']}")  // text color
+#let bg = rgb("{t['bg']}")  // background color
+#let filled = {str(t['filled']).lower()}  // true = title and section slides in full accent color
+#let title-weight = "{t['weight']}"
+#let margin-x = 1.8cm
+#let margin-top = 1.4cm
+#let font-size = {n(c['size'])}pt
+
+#set page(
+  paper: "presentation-{c['aspect']}",
+  fill: bg,
+  margin: (x: margin-x, top: margin-top, bottom: 1.6cm),"""]
+    if logo and c["logo_pos"] == "all":
+        out.append(f'  foreground: place(top + right, dx: -0.4cm, dy: 0.35cm, image("{logo}", height: 0.8cm)),')
+    if c["footer_text"] or c["slide_numbers"]:
+        out.append(f"""  footer: context {{
+    set text(size: 0.6em, fill: fg.transparentize(40%))
+    grid(columns: (1fr, auto), align: (left, right), footer-text, {number})
+  }},""")
+    else:
+        out.append("  footer: none,")
+    out.append(f""")
+#set text(font: {s(c['font'])}, size: font-size, fill: fg, lang: {s(c['lang'])})
+#set par(leading: 0.7em)
+#set list(spacing: 0.9em)
+#set enum(spacing: 0.9em)
+#show link: set text(fill: accent)
+#show heading.where(level: 2): set text(size: font-size, fill: accent)
+#show bibliography: set text(size: 0.7em)
+#set footnote.entry(separator: line(length: 30%, stroke: 0.5pt + fg))
+
+// Every slide records its page, so finishdoc can spot a slide whose content spills onto an extra page.
+#let slide-mark = context [#metadata((page: here().page(), pages: counter(page).final().first())) <slide>]
+#let slide-title(body) = {{
+  set text(size: font-size, weight: title-weight)
+  {t['heading']}
+}}
+#show heading.where(level: 1): it => {{
+  pagebreak(weak: true)
+  slide-mark
+  slide-title(it.body)
+}}
+
+// #section[...]: divider slide, listed on the outline slide.
+#let section(body) = {{
+  [#metadata(body) <section>]
+  page(fill: if filled {{ accent }} else {{ bg }}, footer: none, foreground: none)[
+    #slide-mark
+    #align(center + horizon, text(2em, weight: title-weight, fill: if filled {{ white }} else {{ accent }}, body))
+  ]
+}}
+
+#let outline-slide(title: "Outline") = {{
+  pagebreak(weak: true)
+  slide-mark
+  slide-title(title)
+  context {{
+    let sections = query(<section>).map(m => m.value)
+    enum(..if sections.len() > 0 {{ sections }} else {{ query(heading.where(level: 1)).map(h => h.body) }})
+  }}
+}}
+
+#let title-slide() = page(fill: if filled {{ accent }} else {{ bg }}, footer: none, foreground: none)[
+  #slide-mark
+  #set text(fill: {on_fill})
+  #align(center + horizon)[""")
+    if logo and c["logo_pos"] in ("title", "all"):
+        out.append(f'    #image("{logo}", height: 2cm)\n    #v(0.6cm)')
+    out.append(f"""    #text(2em, weight: title-weight, fill: if filled {{ white }} else {{ accent }}, title)
+    #if subtitle != "" [ \\ #text(1.2em, subtitle)]
+    #v(1.2cm)
+    #authors.join(", ")
+    #if institution != "" [ \\ #institution]
+    #if date != "" [ \\ #text(0.8em, date)]
+  ]
+]""")
+    out += lang_helpers(c["langs"])
+
+    out.append("\n// ===== Title =====")
+    if c["title_slide"]:
+        out.append("#title-slide()")
+    if c["outline"]:
+        out.append("#outline-slide()")
+
+    cite = " @knuth1984" if c["bib"] else ""
+    lang_demo = f'\n- In another language: #{helper(c["langs"][0])}["{c["langs"][0]}" text here]' if c["langs"] else ""
+    out.append(f"""
+// ===== Content =====
+#section[Introduction]
+
+= Motivation
+- #lorem(8)
+- #lorem(10){cite}
+- #lorem(6)#footnote[A footnote.]{lang_demo}
+
+= Research question
+#lorem(25)
+
+#section[Results]
+
+= Main finding
+#grid(columns: (1fr, 1fr), gutter: 1cm,
+  [
+    - #lorem(6)
+    - #lorem(8)
+  ],
+  // Replace with: image("figure.png", width: 100%)
+  rect(width: 100%, height: 5cm, stroke: accent)[#align(center + horizon)[Image goes here]],
+)
+
+= Conclusion
++ #lorem(8)
++ #lorem(8)""")
+    if c["bib"]:
+        out.append("\n= References" + bibliography(c["bib_style"], "title: none, "))
+    return "\n".join(out) + "\n"
+
+
+def build_document(c):
     logo = "logo" + Path(c["logo"]).suffix if c["logo"] else ""
     accent = f'rgb("#{c["accent"].lstrip("#")}")' if c["accent"] else "black"
     mg = c["margins"]
@@ -206,10 +465,7 @@ def build(c):
     if c["preset"] == "report":
         out.append("#show heading.where(level: 1): it => pagebreak(weak: true) + it  // chapters start on a new page")
 
-    if c["langs"]:
-        out.append("\n// ===== Other languages: wrap passages so hyphenation and quotes follow that language =====")
-        for l in c["langs"]:
-            out.append(f'#let {"lang-" + l if l in TYPST_KEYWORDS else l}(body) = text(lang: "{l}", body)')
+    out += lang_helpers(c["langs"])
 
     if c["preset"] == "homework":
         out.append("""
@@ -272,7 +528,7 @@ Dear Recipient,""")
     lang_demo = ""
     if c["langs"]:
         l = c["langs"][0]
-        lang_demo = f'\n\nA passage in another language: #{"lang-" + l if l in TYPST_KEYWORDS else l}["{l}" text here]. '
+        lang_demo = f'\n\nA passage in another language: #{helper(l)}["{l}" text here]. '
     body = {
         "article": f"= Introduction\n#lorem(80){cite}.#footnote[A footnote.]{lang_demo}\n\n= Method\n#lorem(100)\n\n== Details\n#lorem(60)",
         "report": f"= Introduction\n#lorem(120){cite}.#footnote[A footnote.]{lang_demo}\n\n== Background\n#lorem(80)\n\n= Results\n#lorem(150)",
@@ -284,18 +540,7 @@ Dear Recipient,""")
     out.append(body)
 
     if c["bib"]:
-        out.append(f"""
-// ===== References =====
-// Add BibTeX entries inside the block below as you write; cite them in the text with @key.
-// (Prefer a separate file, e.g. a Zotero export? Use: #bibliography("refs.bib", style: "{c['bib_style']}"))
-#bibliography(style: "{c['bib_style']}", bytes(```bib
-@book{{knuth1984,
-  author    = {{Donald E. Knuth}},
-  title     = {{The TeXbook}},
-  publisher = {{Addison-Wesley}},
-  year      = {{1984}},
-}}
-```.text))""")
+        out.append(bibliography(c["bib_style"]))
     return "\n".join(out) + "\n"
 
 

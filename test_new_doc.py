@@ -1,4 +1,4 @@
-"""Generates every preset (all defaults, plus one with extras), compiles it, and checks finishdoc. Run: python3 test_new_doc.py"""
+"""Generates every document preset and presentation theme (all defaults, plus extras), compiles them, and checks finishdoc. Run: python3 test_new_doc.py"""
 import re
 import subprocess
 import sys
@@ -10,8 +10,10 @@ import new_doc
 SCRIPT = Path(__file__).with_name("new_doc.py")
 FINISH = Path(__file__).with_name("finish_doc.py")
 # Answers are fed in prompt order; blank lines accept defaults and EOF accepts all the rest.
-CASES = {p: f"{p}\n" for p in new_doc.PRESETS}
-CASES["report-extras"] = 'report\nMy "Quoted" Report\nSub\nAna, Bo\n\n\nen\nes,or\n' + "\n" * 20 + "y\ny\ny\nieee\n{logo}\nboth\n"
+CASES = {p: f"document\n{p}\n" for p in new_doc.PRESETS}
+CASES |= {f"slides-{t}": f"presentation\n{t}\n" for t in new_doc.THEMES}
+CASES["report-extras"] = 'document\nreport\nMy "Quoted" Report\nSub\nAna, Bo\n\n\nen\nes,or\n' + "\n" * 20 + "y\ny\ny\nieee\n{logo}\nboth\n"
+CASES["slides-extras"] = 'presentation\nacademic\nMy "Quoted" Talk\nSub\nAna, Bo\nSeminar\n\n\nen\nes,or\n4-3\n\n\n\nn\ny\nn\n\ny\nieee\n{logo}\nall\n'
 
 with tempfile.TemporaryDirectory() as tmp:
     logo = Path(tmp, "l.svg")
@@ -46,3 +48,19 @@ with tempfile.TemporaryDirectory() as tmp:
     flagged = re.findall(r"spelling \((\w+)\): (\w+)", f.stdout)
     assert f.returncode == 1 and flagged == [("en", "recieve"), ("es", "grasias")], f.stdout + f.stderr
     print("ok finishdoc")
+
+    # Presentations: a slide whose content doesn't fit is reported with its line; trimmed, it passes.
+    talk = Path(tmp, "talk")
+    talk.mkdir()
+    r = subprocess.run([sys.executable, SCRIPT], input="presentation\nclean\nTalk\n\nAna\n", text=True, capture_output=True, cwd=talk)
+    typ = talk / "talk" / "main.typ"
+    head = typ.read_text().split("// ===== Content =====")[0]
+    typ.write_text(head + "#section[Start]\n\n= Short\nFine.\n\n= Long\n#lorem(500)\n")
+    f = subprocess.run([sys.executable, FINISH, typ.parent, "--no-spell"], capture_output=True, text=True)
+    overflow = re.findall(r"main.typ:(\d+): slide overflows onto \d extra page\(s\), shorten it or split it: (.*)", f.stdout)
+    line = typ.read_text().splitlines().index("= Long") + 1
+    assert f.returncode == 1 and overflow == [(str(line), "= Long")], f.stdout + f.stderr
+    typ.write_text(head + "#section[Start]\n\n= Short\nFine.\n\n= Long\nAlso fine.\n")
+    f = subprocess.run([sys.executable, FINISH, typ.parent, "--no-spell"], capture_output=True, text=True)
+    assert f.returncode == 0 and (talk / "talk" / "talk.pdf").exists(), f.stdout + f.stderr
+    print("ok finishdoc slides")
