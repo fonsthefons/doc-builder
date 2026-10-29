@@ -23,7 +23,7 @@ from pathlib import Path
 PLACEHOLDERS = [
     r"#lorem\(", r"Your Name", r"\bUntitled\b", r"Recipient Name", r"Dear Recipient", r"Street 1",
     r"Course name", r"#answer\[\s*\]", r'"\w+" text here', r"A footnote\.", r"#footnote\[Source\.\]",
-    r"Image goes here",
+    r"Image goes here", r"images/sample\.png", r"A sample image",
 ]
 # Source lines that start a slide, in the same order as the <slide> marks the presentation template records.
 SLIDE_START = re.compile(r"\s*(= |#title-slide\(|#outline-slide\(|#section\[)")
