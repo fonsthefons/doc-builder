@@ -28,6 +28,9 @@ with tempfile.TemporaryDirectory() as tmp:
         assert c.returncode == 0, f"{name}: typst failed\n{c.stderr}\n--- {typ}\n{typ.read_text()}"
         f = subprocess.run([sys.executable, FINISH, typ.parent], capture_output=True, text=True)
         assert f.returncode == 1 and "leftover template text" in f.stdout, f"{name}: finishdoc missed placeholders\n{f.stdout}"
+        if "letter" not in name:  # every type but letters gets the sample image by default
+            assert (typ.parent / "images" / "sample.png").is_file(), f"{name}: sample image not copied"
+            assert "leftover template text: images/sample.png" in f.stdout, f"{name}: finishdoc missed the sample image\n{f.stdout}"
         print("ok", name)
 
     # finishdoc on a finished doc: passes, then fails once a source goes uncited.

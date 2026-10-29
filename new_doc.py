@@ -24,6 +24,8 @@ In the generated main.typ:
   #es[...]        passage in another language (one helper per extra language you list)
   = Title         (presentations) starts a new slide
   #section[...]   (presentations) section divider slide, listed on the outline slide
+  #image("images/photo.png", width: 60%)   image; put image files in the doc's images folder
+  #figure(image("images/photo.png"), caption: [...]) <fig-photo>   numbered figure; refer to it with @fig-photo
 
 Preview: typst watch <folder>/main.typ   (or the Tinymist Typst extension in Cursor)
 Test the script: python3 test_new_doc.py
@@ -59,6 +61,7 @@ THEMES = {
                      heading='block(below: 0.9em, text(1.5em, fill: accent, body))'),
 }
 BIB_STYLES = ["apa", "ieee", "mla", "chicago-author-date", "chicago-notes", "harvard-cite-them-right", "vancouver"]
+SAMPLE_IMAGE = Path(__file__).resolve().parent / "samples" / "sample.png"  # resolve(): newdoc is a symlink
 TYPST_KEYWORDS = {"as", "or", "in", "if", "and", "not", "let", "set", "for", "none", "auto", "show"}
 
 
@@ -183,6 +186,7 @@ def collect_presentation():
     c["bib"] = yes("References slide", True)
     c["bib_style"] = choose("Citation style", BIB_STYLES, "apa") if c["bib"] else ""
     ask_logo(c, ["title", "all"], "title")
+    c["sample"] = yes("Sample image (shows how to add images)", True)
     return c
 
 
@@ -235,6 +239,7 @@ def collect_document():
     c["bib"] = yes("Bibliography", p["bib"])
     c["bib_style"] = choose("Citation style", BIB_STYLES, "apa") if c["bib"] else ""
     ask_logo(c, ["header", "title", "both"], "title")
+    c["sample"] = yes("Sample image (shows how to add images)", True) if preset != "letter" else False
     return c
 
 
@@ -377,6 +382,11 @@ def build_presentation(c):
 
     cite = " @knuth1984" if c["bib"] else ""
     lang_demo = f'\n- In another language: #{helper(c["langs"][0])}["{c["langs"][0]}" text here]' if c["langs"] else ""
+    if c["sample"]:
+        figure = 'image("images/sample.png", width: 100%),  // put your own images in the images folder'
+    else:
+        figure = ('// Replace with: image("images/figure.png", width: 100%)\n'
+                  '  rect(width: 100%, height: 5cm, stroke: accent)[#align(center + horizon)[Image goes here]],')
     out.append(f"""
 // ===== Content =====
 #section[Introduction]
@@ -397,8 +407,7 @@ def build_presentation(c):
     - #lorem(6)
     - #lorem(8)
   ],
-  // Replace with: image("figure.png", width: 100%)
-  rect(width: 100%, height: 5cm, stroke: accent)[#align(center + horizon)[Image goes here]],
+  {figure}
 )
 
 = Conclusion
@@ -538,6 +547,14 @@ Dear Recipient,""")
         "summary": f"= Key points\n+ #lorem(10)\n+ #lorem(12)\n\n= Summary\n#lorem(80){cite}{lang_demo}\n\n= Open questions\n- #lorem(8)",
     }[c["preset"]]
     out.append(body)
+    if c["sample"]:
+        out.append("""
+// Put your own images in the images folder; width is relative to the text width. Refer to a figure with @label.
+#figure(
+  image("images/sample.png", width: 60%),
+  caption: [A sample image. Replace it with your own.],
+) <fig-sample>
+@fig-sample shows how to add an image and refer to it.""")
 
     if c["bib"]:
         out.append(bibliography(c["bib_style"]))
@@ -551,7 +568,13 @@ def main():
     target = folder / "main.typ"
     if target.exists():
         raise SystemExit(f"{target} already exists; not overwriting.")
-    folder.mkdir(parents=True, exist_ok=True)
+    (folder / "images").mkdir(parents=True, exist_ok=True)
+    if c["sample"]:
+        if SAMPLE_IMAGE.is_file():
+            shutil.copy(SAMPLE_IMAGE, folder / "images" / "sample.png")
+        else:
+            print(f"  warning: {SAMPLE_IMAGE} is missing; the sample image is left out.")
+            c["sample"] = False
     if c["logo"]:
         shutil.copy(c["logo"], folder / ("logo" + Path(c["logo"]).suffix))
     target.write_text(build(c))

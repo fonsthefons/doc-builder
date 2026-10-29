@@ -89,6 +89,12 @@ You also choose 16:9 or 4:3, the font, size and accent color, and whether to inc
 
 Citations, footnotes, images and `#es[...]` work the same as in documents (below).
 
+## Images
+
+Every new document and presentation has an `images/` folder: put your image files there (PNG, JPG, SVG, GIF or WebP). The last question, **Sample image**, copies a sample into that folder and shows it in the document as a numbered figure with a caption, or on the "Main finding" slide of a presentation. Change the file name to your own image when you're ready; `finishdoc` reports the sample as leftover until you do. The sample lives in `samples/sample.png` in this repo.
+
+`width` is relative to the text width (`60%`) or absolute (`8cm`). On slides, `height: 60%` keeps an image from pushing content onto an extra page.
+
 ## Writing in the generated file
 
 | You want | Write |
@@ -97,7 +103,8 @@ Citations, footnotes, images and `#es[...]` work the same as in documents (below
 | Footnote | `#footnote[text]` |
 | Citation | `@key`, then add the BibTeX entry in the **References** block at the bottom of `main.typ` |
 | Passage in another language | `#es[Hola]` (one helper for each extra language you listed) |
-| Image | `#image("photo.png", width: 60%)` |
+| Image | `#image("images/photo.png", width: 60%)` |
+| Numbered figure with a caption | `#figure(image("images/photo.png", width: 60%), caption: [Text]) <fig-photo>`, then refer to it with `@fig-photo` |
 
 To use a bibliography exported from Zotero instead, put `refs.bib` next to `main.typ` and replace the References block with `#bibliography("refs.bib", style: "apa")`.
 
