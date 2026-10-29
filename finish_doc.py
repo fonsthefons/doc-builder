@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Final check + PDF build for a document made with newdoc.
+"""Final check + PDF build for a document or presentation made with newdoc.
 
 Checks:
   - leftover template text (lorem ipsum, "Your Name", empty #answer[] boxes, ...)
@@ -7,12 +7,14 @@ Checks:
   - Typst errors and warnings (missing fonts, broken references, ...)
   - spelling (aspell), in the doc's language; #es[...]-style passages are checked in their own language.
     Words to accept (names, jargon): one per line in dictionary.txt next to main.typ.
+  - presentations: slides whose content doesn't fit and spills onto an extra page
 Then writes <folder>/<folder-name>.pdf. Exits with status 1 if anything needs fixing.
 
 Usage: finishdoc [path]   (path = doc folder or .typ file; default: current folder)
 """
 import argparse
 import html
+import json
 import re
 import subprocess
 import sys
@@ -21,7 +23,10 @@ from pathlib import Path
 PLACEHOLDERS = [
     r"#lorem\(", r"Your Name", r"\bUntitled\b", r"Recipient Name", r"Dear Recipient", r"Street 1",
     r"Course name", r"#answer\[\s*\]", r'"\w+" text here', r"A footnote\.", r"#footnote\[Source\.\]",
+    r"Image goes here",
 ]
+# Source lines that start a slide, in the same order as the <slide> marks the presentation template records.
+SLIDE_START = re.compile(r"\s*(= |#title-slide\(|#outline-slide\(|#section\[)")
 
 MAX_SPELLING = 30
 
@@ -70,6 +75,27 @@ def spelling(src, text):
     return issues
 
 
+def overflowing_slides(src, text):
+    """Slides whose content spills onto extra pages, as 'file:line: ...' issues."""
+    for cmd in (["typst", "eval", "query(<slide>).map(it => it.value)", "--in", str(src)],
+                ["typst", "query", str(src), "<slide>", "--field", "value"]):  # Typst before 0.15
+        r = subprocess.run(cmd, capture_output=True, text=True, cwd=src.parent)
+        if r.returncode == 0:
+            break
+    else:
+        return [f"{src.name}: could not check slides for overflow: {r.stderr.strip()}"]
+    marks = json.loads(r.stdout)
+    starts = [(i, l.strip()) for i, l in enumerate(text.splitlines(), 1) if SLIDE_START.match(l)]
+    issues = []
+    for k, m in enumerate(marks):
+        end = marks[k + 1]["page"] if k + 1 < len(marks) else m["pages"] + 1
+        if (extra := end - m["page"] - 1) > 0:
+            # If the source was restructured (e.g. slides added by a custom helper), fall back to the slide number.
+            where, what = (f"{src.name}:{starts[k][0]}", starts[k][1]) if len(starts) == len(marks) else (src.name, f"slide {m['page']}")
+            issues.append(f"{where}: slide overflows onto {extra} extra page(s), shorten it or split it: {what}")
+    return issues
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("path", nargs="?", default=".", help="doc folder or .typ file (default: current folder)")
@@ -109,6 +135,8 @@ def main():
     except FileNotFoundError:
         sys.exit("Typst not installed: run ./install.sh in doc-builder")
     issues += [l for l in r.stderr.splitlines() if ": error:" in l or ": warning:" in l]
+    if r.returncode == 0 and "<slide>" in text:
+        issues += overflowing_slides(src, text)
 
     if not args.no_spell and r.returncode == 0:
         try:
