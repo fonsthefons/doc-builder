@@ -9,3 +9,6 @@
 !/samples/
 !/fill_slides.py
 !/test_fill_slides.py
+
+# Generated documents and slides
+/docs/

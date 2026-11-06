@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Interactive Typst template generator: asks questions, then writes <folder>/main.typ in the current directory.
+"""Interactive Typst template generator: asks questions, then writes docs/docs/<folder>/main.typ (or docs/slides/... for presentations) in the current directory.
 
 Press Enter to accept the [default] shown for each question. The first question is the kind: document or presentation.
 
@@ -586,7 +586,8 @@ Dear Recipient,""")
 def main():
     argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter).parse_args()
     c = collect()
-    folder = Path(c["folder"]).expanduser()
+    # relative names go under docs/docs or docs/slides; an absolute or ~ path replaces that prefix
+    folder = Path("docs", "slides" if c["kind"] == "presentation" else "docs", Path(c["folder"]).expanduser())
     target = folder / "main.typ"
     if target.exists():
         raise SystemExit(f"{target} already exists; not overwriting.")

@@ -41,7 +41,7 @@ with tempfile.TemporaryDirectory() as tmp:
         r = subprocess.run([sys.executable, Path(__file__).with_name("new_doc.py")], input=f"presentation\n{theme}\n",
                            text=True, capture_output=True, cwd=tmp)
         assert r.returncode == 0, r.stderr
-        src = next(p for p in Path(tmp).glob("*/main.typ") if theme in p.read_text()).resolve()
+        src = next(p for p in Path(tmp).glob("docs/slides/*/main.typ") if theme in p.read_text()).resolve()
         typ = src.read_text()
         assert fs.write(src, typ, [fs.check(s, "29D notes") for s in SLIDES]) == [], src.read_text()
         out = src.read_text()
