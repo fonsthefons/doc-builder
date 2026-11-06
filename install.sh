@@ -23,10 +23,11 @@ if ! command -v aspell >/dev/null; then
   fi
 fi
 
-chmod +x "$DIR/new_doc.py" "$DIR/finish_doc.py"
+chmod +x "$DIR/new_doc.py" "$DIR/finish_doc.py" "$DIR/fill_slides.py"
 mkdir -p "$BIN"
 ln -sf "$DIR/new_doc.py" "$BIN/newdoc"
 ln -sf "$DIR/finish_doc.py" "$BIN/finishdoc"
+ln -sf "$DIR/fill_slides.py" "$BIN/fillslides"
 
 case ":$PATH:" in
   *":$BIN:"*) ;;
