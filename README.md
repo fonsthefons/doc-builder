@@ -99,6 +99,7 @@ You also choose 16:9 or 4:3, the font, size and accent color, and whether to inc
 ```sh
 newdoc                         # make the presentation first (title, theme, language)
 fillslides my-talk             # reads my-talk/slides.txt; or: fillslides my-talk notes.md
+fillslides my-talk --build     # after editing my-talk/slides.json: rebuild the slides without the LLM
 ```
 
 Header lines at the top of the notes file (all optional):
@@ -106,12 +107,20 @@ Header lines at the top of the notes file (all optional):
 ```
 mode: summarize     # long, detailed notes: bold phrases and quotes become the slides (default)
 mode: exact         # the notes already are the slides: keep the wording, only lay them out
-mode: expand        # a few lines: the model builds the talk and marks facts it added with // CHECK
+mode: expand        # a few lines: the model builds the talk and marks facts it added with (?)
 slides: 8           # number of content slides, when the notes have no slide breaks
 model: qwen2.5-14b-instruct
 ```
 
-Mark slide breaks with a line of dashes (`---`, or `—---3---`): you get exactly one slide per block. Without them, the model first splits your ideas into slides. Each slide is written and compiled separately; a slide that fails twice is kept with a `// FIXME` comment. The content section of `main.typ` is replaced (the old file is saved as `main.typ.bak`), and the slides are written in the presentation's language. Local models write plainer slides than you would, so review them before `finishdoc`.
+Mark slide breaks with a line of dashes (`---`, or `—---3---`): you get exactly one slide per block. Without them, the model first splits your ideas into slides. For each slide the model answers JSON, forced by a schema, and the script writes the Typst:
+
+```json
+{"layout": "cards", "kicker": "", "title": "El constructor bueno", "intro": "", "quote": "",
+ "items": [{"head": "Bondad", "text": "Quiso que todo fuera *bueno*."}, {"head": "Orden", "text": "Del desorden al orden."}],
+ "takeaway": "El universo es un viviente."}
+```
+
+Layouts: `bullets`, `cards` (2–3 with headings), `steps` (numbered), `quote`, `section` (divider). The script fixes a layout that doesn't fit its items (e.g. 4 cards become bullets), drops a kicker that isn't in your notes, and escapes all text, so only `*bold*` is markup. All slides are saved in `slides.json`: edit them there and run `--build`. A slide that still overflows after one retry is marked `// FIXME`. Citations aren't generated; add `@key` by hand. The content section of `main.typ` is replaced (the old file is saved as `main.typ.bak`), and the slides are written in the presentation's language. Local models write plainer slides than you would, so review them before `finishdoc`.
 
 Citations, footnotes, images and `#es[...]` work the same as in documents (below).
 
@@ -138,7 +147,7 @@ To use a bibliography exported from Zotero instead, put `refs.bib` next to `main
 
 ```sh
 python3 test_new_doc.py   # generates and compiles every document type and presentation theme, and tests finishdoc
-python3 test_fill_slides.py   # fillslides without an LLM: parsing, cleanup and every slide layout
+python3 test_fill_slides.py   # fillslides without an LLM: parsing, slide checks, escaping and every layout
 ```
 
 The repo uses an allowlist `.gitignore`. Only the tool's files are tracked, so documents you create inside this folder are never committed. When you add a file to the tool, add a matching `!/filename` line to `.gitignore`.
