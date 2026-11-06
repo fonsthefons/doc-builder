@@ -23,7 +23,8 @@ with tempfile.TemporaryDirectory() as tmp:
         cwd.mkdir()
         r = subprocess.run([sys.executable, SCRIPT], input=answers.format(logo=logo), text=True, capture_output=True, cwd=cwd)
         assert r.returncode == 0, f"{name}: {r.stderr}"
-        typ = next(cwd.glob("*/main.typ"))
+        typ = next(cwd.glob("docs/*/*/main.typ"))
+        assert typ.parent.parent.name == ("slides" if answers.startswith("presentation") else "docs"), f"{name}: wrong folder {typ}"
         c = subprocess.run(["typst", "compile", typ], capture_output=True, text=True)
         assert c.returncode == 0, f"{name}: typst failed\n{c.stderr}\n--- {typ}\n{typ.read_text()}"
         f = subprocess.run([sys.executable, FINISH, typ.parent], capture_output=True, text=True)
@@ -56,7 +57,7 @@ with tempfile.TemporaryDirectory() as tmp:
     talk = Path(tmp, "talk")
     talk.mkdir()
     r = subprocess.run([sys.executable, SCRIPT], input="presentation\nclean\nTalk\n\nAna\n", text=True, capture_output=True, cwd=talk)
-    typ = talk / "talk" / "main.typ"
+    typ = talk / "docs" / "slides" / "talk" / "main.typ"
     head = typ.read_text().split("// ===== Content =====")[0]
     typ.write_text(head + "#section[Start]\n\n= Short\nFine.\n\n= Long\n#lorem(500)\n")
     f = subprocess.run([sys.executable, FINISH, typ.parent, "--no-spell"], capture_output=True, text=True)
@@ -65,5 +66,5 @@ with tempfile.TemporaryDirectory() as tmp:
     assert f.returncode == 1 and overflow == [(str(line), "= Long")], f.stdout + f.stderr
     typ.write_text(head + "#section[Start]\n\n= Short\nFine.\n\n= Long\nAlso fine.\n")
     f = subprocess.run([sys.executable, FINISH, typ.parent, "--no-spell"], capture_output=True, text=True)
-    assert f.returncode == 0 and (talk / "talk" / "talk.pdf").exists(), f.stdout + f.stderr
+    assert f.returncode == 0 and (typ.parent / "talk.pdf").exists(), f.stdout + f.stderr
     print("ok finishdoc slides")

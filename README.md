@@ -25,7 +25,7 @@ newdoc            # answer the questions; press Enter to accept [defaults]
 newdoc --help     # list document types, presentation themes and tips
 ```
 
-The first question is the kind: `document` or `presentation`. The document folder is created inside the folder you run `newdoc` from. You can also type a path such as `~/uni/essay-1` when it asks for the folder name.
+The first question is the kind: `document` or `presentation`. The document folder is created in `docs/docs/` (presentations in `docs/slides/`) inside the folder you run `newdoc` from. You can also type a path such as `~/uni/essay-1` when it asks for the folder name.
 
 Preview while you edit:
 
@@ -151,4 +151,4 @@ python3 test_new_doc.py   # generates and compiles every document type and prese
 python3 test_fill_slides.py   # fillslides without an LLM: parsing, slide checks, escaping and every layout
 ```
 
-The repo uses an allowlist `.gitignore`. Only the tool's files are tracked, so documents you create inside this folder are never committed. When you add a file to the tool, add a matching `!/filename` line to `.gitignore`.
+The repo uses an allowlist `.gitignore`. Only the tool's files are tracked, so documents you create inside this folder are never committed; `docs/` is also ignored explicitly. When you add a file to the tool, add a matching `!/filename` line to `.gitignore`.
