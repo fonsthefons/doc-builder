@@ -7,3 +7,5 @@
 !/install.sh
 !/finish_doc.py
 !/samples/
+!/fill_slides.py
+!/test_fill_slides.py

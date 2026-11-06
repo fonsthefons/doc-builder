@@ -12,7 +12,7 @@ cd doc-builder
 
 The install script:
 - installs Typst and aspell (the spellchecker) with Homebrew if they're missing;
-- links the `newdoc` and `finishdoc` commands into `~/.local/bin`;
+- links the `newdoc`, `finishdoc` and `fillslides` commands into `~/.local/bin`;
 - adds that folder to your PATH if it isn't there already.
 
 It only needs `python3`. The script uses the standard library alone, so there are no packages to install.
@@ -85,7 +85,33 @@ You also choose 16:9 or 4:3, the font, size and accent color, and whether to inc
 | New slide | `= Slide title` |
 | Section divider slide (listed on the outline slide) | `#section[Results]` |
 | Subheading on a slide | `== Subtitle` |
-| Two columns | `#grid(columns: (1fr, 1fr), gutter: 1cm, [left], [right])` |
+| Two or three columns | `#cols([left], [right])` |
+| Boxed point (put 2–3 in `#cols`) | `#card[Heading][Text]` |
+| Highlighted quote | `#quote(block: true)[“...”]` |
+| Closing line at the bottom of the slide | `#takeaway[...]` |
+| Small label above the title (e.g. a section number) | `#kicker[29D]` on the line before `= Slide title` |
+| Lettered list | `#enum(numbering: "A", [one], [two])` |
+
+### Slides from notes with a local LLM
+
+`fillslides` writes the slides of a presentation from a notes file, using a model served by [LM Studio](https://lmstudio.ai) (start it with `lms server start`).
+
+```sh
+newdoc                         # make the presentation first (title, theme, language)
+fillslides my-talk             # reads my-talk/slides.txt; or: fillslides my-talk notes.md
+```
+
+Header lines at the top of the notes file (all optional):
+
+```
+mode: summarize     # long, detailed notes: bold phrases and quotes become the slides (default)
+mode: exact         # the notes already are the slides: keep the wording, only lay them out
+mode: expand        # a few lines: the model builds the talk and marks facts it added with // CHECK
+slides: 8           # number of content slides, when the notes have no slide breaks
+model: qwen2.5-14b-instruct
+```
+
+Mark slide breaks with a line of dashes (`---`, or `—---3---`): you get exactly one slide per block. Without them, the model first splits your ideas into slides. Each slide is written and compiled separately; a slide that fails twice is kept with a `// FIXME` comment. The content section of `main.typ` is replaced (the old file is saved as `main.typ.bak`), and the slides are written in the presentation's language. Local models write plainer slides than you would, so review them before `finishdoc`.
 
 Citations, footnotes, images and `#es[...]` work the same as in documents (below).
 
@@ -112,6 +138,7 @@ To use a bibliography exported from Zotero instead, put `refs.bib` next to `main
 
 ```sh
 python3 test_new_doc.py   # generates and compiles every document type and presentation theme, and tests finishdoc
+python3 test_fill_slides.py   # fillslides without an LLM: parsing, cleanup and every slide layout
 ```
 
 The repo uses an allowlist `.gitignore`. Only the tool's files are tracked, so documents you create inside this folder are never committed. When you add a file to the tool, add a matching `!/filename` line to `.gitignore`.

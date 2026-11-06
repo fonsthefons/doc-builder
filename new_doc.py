@@ -24,6 +24,7 @@ In the generated main.typ:
   #es[...]        passage in another language (one helper per extra language you list)
   = Title         (presentations) starts a new slide
   #section[...]   (presentations) section divider slide, listed on the outline slide
+  #kicker[...] #cols #card #quote(block: true) #takeaway   (presentations) slide layouts, explained in main.typ
   #image("images/photo.png", width: 60%)   image; put image files in the doc's images folder
   #figure(image("images/photo.png"), caption: [...]) <fig-photo>   numbered figure; refer to it with @fig-photo
 
@@ -333,11 +334,28 @@ def build_presentation(c):
   set text(size: font-size, weight: title-weight)
   {t['heading']}
 }}
+// #kicker[29D] before `= Title`: small label shown above that slide's title.
+#let kicker-text = state("kicker", none)
+#let kicker(body) = kicker-text.update(body)
 #show heading.where(level: 1): it => {{
   pagebreak(weak: true)
   slide-mark
-  slide-title(it.body)
+  slide-title({{
+    context {{ let k = kicker-text.get(); if k != none [#text(0.5em, upper(k)) \\ ] }}
+    it.body
+  }})
+  kicker-text.update(none)
 }}
+
+// Layouts: #cols([...], [...]) side by side; #card[Heading][text] boxed point (put several in #cols);
+// #quote(block: true)[...] highlighted quote; #takeaway[...] closing line pinned to the bottom of the slide.
+#let cols(..items) = grid(columns: (1fr,) * items.pos().len(), gutter: 0.8cm, ..items.pos())
+#let card(head, body) = block(width: 100%, inset: 0.7em, radius: 4pt, fill: accent.transparentize(88%))[
+  #text(fill: accent, weight: "bold", head) \\
+  #text(0.85em, body)
+]
+#show quote.where(block: true): it => block(width: 100%, inset: (left: 0.8em, y: 0.3em), stroke: (left: 3pt + accent), emph(it.body))
+#let takeaway(body) = {{ v(1fr); block(width: 100%, inset: 0.6em, radius: 4pt, stroke: 1pt + accent, text(0.9em, body)) }}
 
 // #section[...]: divider slide, listed on the outline slide.
 #let section(body) = {{
@@ -354,7 +372,8 @@ def build_presentation(c):
   slide-title(title)
   context {{
     let sections = query(<section>).map(m => m.value)
-    enum(..if sections.len() > 0 {{ sections }} else {{ query(heading.where(level: 1)).map(h => h.body) }})
+    let items = if sections.len() > 0 {{ sections }} else {{ query(heading.where(level: 1)).map(h => h.body) }}
+    columns(if items.len() > 6 {{ 2 }} else {{ 1 }}, enum(..items))  // 2 columns so long outlines fit
   }}
 }}
 
@@ -396,8 +415,11 @@ def build_presentation(c):
 - #lorem(10){cite}
 - #lorem(6)#footnote[A footnote.]{lang_demo}
 
+#kicker[Section 2]
 = Research question
-#lorem(25)
+#quote(block: true)[#lorem(12)]
+#cols(card[Option A][#lorem(10)], card[Option B][#lorem(10)])
+#takeaway[#lorem(10)]
 
 #section[Results]
 
