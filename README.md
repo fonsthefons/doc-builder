@@ -94,7 +94,7 @@ You also choose 16:9 or 4:3, the font, size and accent color, and whether to inc
 
 ### Slides from notes with a local LLM
 
-`fillslides` writes the slides of a presentation from a notes file, using a model served by [LM Studio](https://lmstudio.ai) (start it with `lms server start`).
+`fillslides` writes the slides of a presentation from a notes file, using a model in [LM Studio](https://lmstudio.ai). It starts LM Studio's server and loads the model itself, and afterwards stops whatever it started (a server or model you already had running is left alone).
 
 ```sh
 newdoc                         # make the presentation first (title, theme, language)

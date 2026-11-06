@@ -39,4 +39,4 @@ case ":$PATH:" in
     ;;
 esac
 
-echo "Installed. Run: newdoc  /  finishdoc   (add --help for details)"
+echo "Installed. Run: newdoc  /  fillslides  /  finishdoc   (add --help for details)"

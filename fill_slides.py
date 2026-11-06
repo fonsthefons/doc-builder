@@ -15,9 +15,10 @@ Slide breaks: lines of dashes (---, —---111---). Without them the LLM first sp
 The LLM answers each slide as JSON (layout, kicker, title, intro, quote, items, takeaway); this script checks it,
 saves slides.json, and writes the Typst. Replaces everything between "// ===== Content =====" and "= References"
 in main.typ (old file kept as main.typ.bak). A slide that still overflows after one retry is marked FIXME.
-Needs the LM Studio server: lms server start
+Needs LM Studio. The script starts its server and loads the model if needed, and stops only what it started.
 """
 import argparse
+import contextlib
 import json
 import re
 import shutil
@@ -165,8 +166,39 @@ def chat(model, messages, schema):
         with urllib.request.urlopen(req, timeout=900) as r:
             reply = json.load(r)["choices"][0]["message"]["content"]
     except OSError as e:
-        sys.exit(f"cannot reach LM Studio at {URL} ({e}). Start it with: lms server start")
+        sys.exit(f"cannot reach LM Studio at {URL} ({e})")
     return json.loads(re.sub(r"<think>.*?</think>", "", reply, flags=re.S))
+
+
+@contextlib.contextmanager
+def lm_studio(model):
+    """Starts the LM Studio server and loads model if they aren't already; afterwards stops/unloads only what it started."""
+    lms = shutil.which("lms") or str(Path.home() / ".lmstudio/bin/lms")
+    if not Path(lms).exists():
+        sys.exit("LM Studio's lms command not found: install LM Studio from https://lmstudio.ai")
+    run = lambda *a: subprocess.run([lms, *a], capture_output=True, text=True)
+    try:
+        urllib.request.urlopen(URL.replace("chat/completions", "models"), timeout=3).close()
+        started = False
+    except OSError:
+        started = True
+    if started:
+        print("starting the LM Studio server...", flush=True)
+        if (r := run("server", "start")).returncode:
+            sys.exit(f"could not start the LM Studio server:\n{r.stderr or r.stdout}")
+    loaded = model not in {m.get("identifier") for m in json.loads(run("ps", "--json").stdout or "[]")}
+    try:
+        if loaded:
+            print(f"loading {model}...", flush=True)
+            if (r := run("load", model, "-y")).returncode:
+                sys.exit(f"could not load {model} (see `lms ls` for names):\n{r.stderr or r.stdout}")
+        yield
+    finally:
+        if loaded:
+            run("unload", model)
+        if started:
+            run("server", "stop")
+            print("stopped the LM Studio server", flush=True)
 
 
 def problems(src):
@@ -239,7 +271,8 @@ def main():
         slides = [check(s) for s in json.loads(jsn.read_text())]
     else:
         opts, notes = parse((args.notes or args.folder / "slides.txt").read_text())
-        slides = generate(src, typ, notes, opts)
+        with lm_studio(opts["model"]):
+            slides = generate(src, typ, notes, opts)
         jsn.write_text(json.dumps([{k: v for k, v in s.items() if k != "fixme"} for s in slides], ensure_ascii=False, indent=2))
         print(f"saved {jsn} (edit it, then: fillslides {args.folder} --build)")
 
