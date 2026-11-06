@@ -100,6 +100,7 @@ You also choose 16:9 or 4:3, the font, size and accent color, and whether to inc
 newdoc                         # make the presentation first (title, theme, language)
 fillslides my-talk             # reads my-talk/slides.txt; or: fillslides my-talk notes.md
 fillslides my-talk --build     # after editing my-talk/slides.json: rebuild the slides without the LLM
+fillslides my-talk/other.json --build   # rebuild from another JSON file; a notes file works the same way
 ```
 
 Header lines at the top of the notes file (all optional):

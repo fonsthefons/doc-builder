@@ -3,6 +3,7 @@
 
   fillslides <folder> [notes.txt]   notes (default <folder>/slides.txt) -> <folder>/slides.json -> main.typ
   fillslides <folder> --build       main.typ from <folder>/slides.json again, without the LLM (after editing it)
+  fillslides <file> [--build]       a notes file (or with --build a .json) inside the deck folder: same, from that file
 
 The notes file starts with optional header lines, then free text (Markdown is fine):
   mode: summarize   long, detailed notes: keep the bold ideas and quotes, drop the rest
@@ -260,8 +261,12 @@ def main():
     ap.add_argument("notes", type=Path, nargs="?", help="notes file (default: <folder>/slides.txt)")
     ap.add_argument("--build", action="store_true", help="rebuild main.typ from slides.json, without the LLM")
     args = ap.parse_args()
+    if args.folder.is_file():  # `fillslides deck/notes.txt`: the file's folder is the deck
+        args.folder, args.notes = args.folder.parent, args.folder
     src = (args.folder / "main.typ").resolve()  # typst eval --in needs an absolute path
-    jsn = args.folder / "slides.json"
+    jsn = args.notes if args.build and args.notes else args.folder / "slides.json"
+    if not src.is_file():
+        sys.exit(f"no main.typ in {args.folder}: give the presentation's folder (made with newdoc) or a file inside it")
     typ = src.read_text()
     if CONTENT not in typ or "<slide>" not in typ:
         sys.exit(f"{src} is not a presentation made by newdoc")
