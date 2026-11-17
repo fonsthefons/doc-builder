@@ -40,3 +40,11 @@ case ":$PATH:" in
 esac
 
 echo "Installed. Run: newdoc  /  fillslides  /  finishdoc   (add --help for details)"
+cat <<'EOF'
+
+Extra steps (by hand, only for what you use):
+  • fillslides needs LM Studio (https://lmstudio.ai or brew install --cask lm-studio), opened once,
+    and its model downloaded: ~/.lmstudio/bin/lms get qwen2.5-14b-instruct (or set `model:` in the notes file).
+  • Live preview while editing: the "Tinymist Typst" extension in Cursor / VS Code.
+  • Spellcheck in other languages: aspell includes most; check with `aspell dicts`.
+EOF

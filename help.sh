@@ -23,4 +23,10 @@ doc-builder: interactive commands that create, fill and finish Typst documents a
 
   python3 fill_slides.py my-talk --build
       Rebuild the slides from my-talk/slides.json after editing it, without the LLM.
+
+  python3 test_new_doc.py && python3 test_fill_slides.py
+      Run the tests (compile every document type and theme; fillslides without an LLM).
+
+After ./install.sh the short names work from any folder: newdoc, finishdoc essay-1 --pdfa, fillslides my-talk.
+More: README.md (how it works), to_check_in_case_of_failure.md (what to do when it breaks).
 EOF

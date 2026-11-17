@@ -2,6 +2,20 @@
 
 An interactive command that creates a ready-to-edit [Typst](https://typst.app) document or presentation. It asks about the title, authors, margins, font, header and footer, page numbers, footnotes, languages, bibliography and more, then writes `<folder>/main.typ`.
 
+## Main commands, step by step
+
+`./help.sh` lists them with examples. If something breaks, see
+[to_check_in_case_of_failure.md](to_check_in_case_of_failure.md).
+
+1. **`newdoc`**: answer the questions (kind, type or theme, title, layout, languages, bibliography). It writes
+   `docs/docs/<name>/main.typ` (presentations: `docs/slides/<name>/`) with an `images/` folder.
+2. **`typst watch <name>/main.typ`**: write, and the PDF rebuilds on every save.
+3. **`fillslides <name> [notes.md]`** (presentations only, optional): starts LM Studio, turns your notes into
+   one JSON per slide (`slides.json`), writes them into `main.typ` (the old file is kept as `main.typ.bak`), then
+   stops what it started. Edit `slides.json` and use `--build` to redo it without the model.
+4. **`finishdoc <name> [--pdfa]`**: checks for leftover template text, uncited references, Typst errors, overflowing
+   slides and spelling, then writes `<name>/<name>.pdf`. Exits 1 with a list of problems if anything needs fixing.
+
 ## Install
 
 ```sh
