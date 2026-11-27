@@ -255,12 +255,16 @@ def generate(src, typ, notes, opts):
     return slides
 
 
-def main():
+def build_parser():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("folder", type=Path)
     ap.add_argument("notes", type=Path, nargs="?", help="notes file (default: <folder>/slides.txt)")
     ap.add_argument("--build", action="store_true", help="rebuild main.typ from slides.json, without the LLM")
-    args = ap.parse_args()
+    return ap
+
+
+def main():
+    args = build_parser().parse_args()
     if args.folder.is_file():  # `fillslides deck/notes.txt`: the file's folder is the deck
         args.folder, args.notes = args.folder.parent, args.folder
     src = (args.folder / "main.typ").resolve()  # typst eval --in needs an absolute path

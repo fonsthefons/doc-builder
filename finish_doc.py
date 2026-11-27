@@ -96,12 +96,16 @@ def overflowing_slides(src, text):
     return issues
 
 
-def main():
+def build_parser():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("path", nargs="?", default=".", help="doc folder or .typ file (default: current folder)")
     ap.add_argument("--no-spell", action="store_true", help="skip the spellcheck")
     ap.add_argument("--pdfa", action="store_true", help="produce PDF/A-2b (archival; often required for submissions)")
-    args = ap.parse_args()
+    return ap
+
+
+def main():
+    args = build_parser().parse_args()
 
     src = Path(args.path).expanduser().resolve()
     if src.is_dir():

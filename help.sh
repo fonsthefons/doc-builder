@@ -3,6 +3,9 @@
 cat <<'EOF'
 doc-builder: interactive commands that create, fill and finish Typst documents and presentations.
 
+  ./ui.sh
+      The same commands in a browser page.
+
   ./install.sh
       Install Typst and aspell, and link newdoc, finishdoc and fillslides into ~/.local/bin.
 
