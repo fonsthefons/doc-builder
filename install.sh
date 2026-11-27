@@ -23,7 +23,11 @@ if ! command -v aspell >/dev/null; then
   fi
 fi
 
-chmod +x "$DIR/new_doc.py" "$DIR/finish_doc.py" "$DIR/fill_slides.py"
+# ui.sh (the browser page) needs the control-panel engine next to this repo.
+[ -d "$DIR/../control-panel" ] || git clone git@github.com:fonsthefons/control-panel.git "$DIR/../control-panel" \
+  || echo "warning: could not clone control-panel; ./ui.sh will not work until it is in ../control-panel"
+
+chmod +x "$DIR/ui.sh" "$DIR/new_doc.py" "$DIR/finish_doc.py" "$DIR/fill_slides.py"
 mkdir -p "$BIN"
 ln -sf "$DIR/new_doc.py" "$BIN/newdoc"
 ln -sf "$DIR/finish_doc.py" "$BIN/finishdoc"

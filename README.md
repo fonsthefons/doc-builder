@@ -16,6 +16,12 @@ An interactive command that creates a ready-to-edit [Typst](https://typst.app) d
 4. **`finishdoc <name> [--pdfa]`**: checks for leftover template text, uncited references, Typst errors, overflowing
    slides and spelling, then writes `<name>/<name>.pdf`. Exits 1 with a list of problems if anything needs fixing.
 
+## Browser page
+
+`./ui.sh` shows finishing a document and writing or rebuilding slides as task cards in a browser page (needs `../control-panel`, which `./install.sh` clones).
+`newdoc` asks questions as you go, so it stays on the command line.
+Check the task file with `./ui.sh --check`.
+
 ## Install
 
 ```sh

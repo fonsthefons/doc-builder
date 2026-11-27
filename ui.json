@@ -1,0 +1,40 @@
+{
+  "title": "doc-builder",
+  "programs": {
+    "finish": {"cmd": "python3 finish_doc.py", "parser": "finish_doc:build_parser"},
+    "slides": {"cmd": "python3 fill_slides.py", "parser": "fill_slides:build_parser"}
+  },
+  "tasks": [
+    {
+      "id": "finish",
+      "title": "Finish a document",
+      "blurb": "Check a document for leftover text, errors and spelling, then write its PDF.",
+      "program": "finish",
+      "command": "",
+      "steps": ["Pick the document's folder.", "Tick PDF/A if your submission needs the archival format.", "Problems are listed with line numbers; fix them and run again."],
+      "show": ["path", "pdfa"],
+      "fields": {"path": {"label": "Document folder", "dir": "docs/docs"}, "pdfa": {"label": "PDF/A-2b (archival)"}}
+    },
+    {
+      "id": "fill",
+      "title": "Write slides from notes",
+      "blurb": "Write the slides of a presentation from a notes file with a local LM Studio model.",
+      "program": "slides",
+      "command": "",
+      "steps": ["Pick the presentation's folder (made with newdoc).", "Pick your notes file, or leave it empty to use slides.txt in the folder."],
+      "show": ["folder", "notes"],
+      "fields": {"folder": {"label": "Presentation folder", "dir": "docs/slides"}, "notes": {"label": "Notes file", "dir": "docs/slides"}}
+    },
+    {
+      "id": "build",
+      "title": "Rebuild slides",
+      "blurb": "Rebuild the slides from slides.json after editing it, without the LLM.",
+      "program": "slides",
+      "command": "",
+      "steps": ["Pick the presentation's folder.", "It is rebuilt from the folder's slides.json."],
+      "show": ["folder"],
+      "fixed": {"build": true},
+      "fields": {"folder": {"label": "Presentation folder", "dir": "docs/slides"}}
+    }
+  ]
+}
